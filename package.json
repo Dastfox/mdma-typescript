@@ -1,0 +1,40 @@
+{
+  "name": "typescript-mdma",
+  "version": "0.1.0",
+  "description": "Typed Markdown templating: render one or more Markdown strings from an .mdma template and an inputs object.",
+  "keywords": ["markdown", "template", "templating", "codegen"],
+  "license": "MIT",
+  "author": "Théo Renard",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Dastfox/mdma-typescript.git"
+  },
+  "homepage": "https://dastfox.github.io/mdma/",
+  "bugs": "https://github.com/Dastfox/mdma-typescript/issues",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": ["dist"],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  }
+}
