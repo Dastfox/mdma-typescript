@@ -14,10 +14,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6 # v6+ required for npm OIDC Trusted Publishing support
         with:
-          node-version: "22" # npm Trusted Publishing requires npm >=11.5.1 / Node >=22.14.0
+          node-version: "22"
           registry-url: "https://registry.npmjs.org"
+      - run: npm install -g npm@latest # bundled npm may be <11.5.1, required for OIDC
       - run: npm ci
       - run: npm run build
       - run: node --version && npm --version
