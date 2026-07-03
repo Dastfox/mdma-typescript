@@ -22,7 +22,6 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: node --version && npm --version
-      - run: npm whoami --registry https://registry.npmjs.org
       - run: npm publish
         # Publishes via npm OIDC Trusted Publishing (configured on npmjs.com for
         # this repo/workflow) — no token needed.
