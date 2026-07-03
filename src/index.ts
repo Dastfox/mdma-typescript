@@ -13,8 +13,10 @@ export {
   MdmaTypeError,
   MissingInputError,
 } from "./errors.js";
+export { parseFile } from "./fileParser.js";
+export type { Block, InputDecl, InputType, ParsedTemplate } from "./model.js";
 export type { RenderedValue } from "./renderer.js";
 export { render, renderFile } from "./renderer.js";
 export { writeOutput } from "./output.js";
 
-export const VERSION = "0.1.0";
+export const VERSION = "0.2.0";
