@@ -1,6 +1,6 @@
 {
   "name": "typescript-mdma",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Typed Markdown templating: render one or more Markdown strings from an .mdma template and an inputs object.",
   "keywords": ["markdown", "template", "templating", "codegen"],
   "license": "MIT",

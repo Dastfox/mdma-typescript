@@ -9,6 +9,8 @@
  * `MdmaSource<{...}>` without changing what the bundler emits.
  */
 
+import type { ParsedTemplate } from "./model.js";
+
 declare const mdmaInputsBrand: unique symbol;
 
 /** A .mdma source string branded with the shape of its `@inputs` section. */
@@ -17,11 +19,15 @@ export type MdmaSource<I extends Record<string, unknown> = Record<string, unknow
 };
 
 /**
- * The inputs object expected by an .mdma source.
+ * The inputs object expected by an .mdma source or parsed template.
  *
- * For a branded `MdmaSource<I>` (e.g. an import typed by a generated
- * `.d.mdma.ts` file) this resolves to `I`, so mismatched keys are flagged by
- * the IDE and `tsc`. For an unbranded string it falls back to
+ * For a branded `MdmaSource<I>` or `ParsedTemplate<I>` (e.g. an import typed
+ * by a generated `.d.mdma.ts` file) this resolves to `I`, so mismatched keys
+ * are flagged by the IDE and `tsc`. Otherwise it falls back to
  * `Record<string, unknown>` — validation then happens at render time only.
  */
-export type MdmaInputs<S> = [S] extends [MdmaSource<infer I>] ? I : Record<string, unknown>;
+export type MdmaInputs<S> = [S] extends [MdmaSource<infer I>]
+  ? I
+  : [S] extends [ParsedTemplate<infer I>]
+    ? I
+    : Record<string, unknown>;

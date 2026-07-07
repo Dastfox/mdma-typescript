@@ -1,11 +1,14 @@
 /**
  * Vite/Rollup plugin for .mdma templates.
  *
- * Importing a `.mdma` file yields its raw source as the default export,
- * after validating that it parses. Unless disabled, the plugin also keeps a
- * `foo.d.mdma.ts` declaration file up to date next to each imported
- * template, so TypeScript (with `allowArbitraryExtensions` enabled) types
- * the import as `MdmaSource<{...}>` matching the template's `@inputs`.
+ * Importing a `.mdma` file yields its parsed template (a `ParsedTemplate`,
+ * for `renderTemplate`) as the default export. Validation happens at build
+ * time — a template that fails to parse breaks the build — and the emitted
+ * module parses once at load, so consumers never re-parse the source.
+ * Unless disabled, the plugin also keeps a `foo.d.mdma.ts` declaration file
+ * up to date next to each imported template, so TypeScript (with
+ * `allowArbitraryExtensions` enabled) types the import as
+ * `ParsedTemplate<{...}>` matching the template's `@inputs`.
  */
 
 import { readFileSync, writeFileSync } from "node:fs";
@@ -47,7 +50,10 @@ export default function mdma(options: MdmaPluginOptions = {}): MdmaPlugin {
         this.error(`Invalid .mdma template: ${message}`);
       }
       if (typegen) writeDtsIfChanged(filename, code);
-      return { code: `export default ${JSON.stringify(code)};`, map: null };
+      return {
+        code: `import { parseFile } from "typescript-mdma";\nexport default parseFile(${JSON.stringify(code)});`,
+        map: null,
+      };
     },
   };
 }

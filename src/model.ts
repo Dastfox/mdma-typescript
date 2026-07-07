@@ -18,9 +18,20 @@ export interface Block {
   body: Node[];
 }
 
-export interface ParsedTemplate {
+declare const templateInputsBrand: unique symbol;
+
+/**
+ * A parsed .mdma template, optionally branded with the shape of its
+ * `@inputs` section. The brand is an optional property on a module-private
+ * symbol, so it exists only in the type system: a generated `foo.d.mdma.ts`
+ * file can declare a `.mdma` import as `ParsedTemplate<{...}>` and
+ * `renderTemplate(template, inputs)` then checks the inputs object at
+ * compile time.
+ */
+export interface ParsedTemplate<I extends Record<string, unknown> = Record<string, unknown>> {
   inputs: InputDecl[];
   blocks: Block[];
+  readonly [templateInputsBrand]?: I;
 }
 
 // --- Expression AST -----------------------------------------------------

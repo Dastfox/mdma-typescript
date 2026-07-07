@@ -47,6 +47,17 @@ result["changelog-by-version"];
 // { "2.1.0": "### 2.1.0 — 2026-06-01\n", "2.0.0": "### 2.0.0 — 2026-05-01\n" }
 ```
 
+`renderTemplate(template, inputs)` renders an already-parsed template (from
+`parseFile`, or a `.mdma` import emitted by the Vite plugin) — same semantics
+as `render`, minus the parse:
+
+```typescript
+import { parseFile, renderTemplate } from "typescript-mdma";
+
+const template = parseFile(source); // parse once ...
+renderTemplate(template, { project: "Acme SDK", version: "3.0.0", date: "2026-07-01" }); // ... render many times
+```
+
 `renderFile(path, inputs)` reads `path` as UTF-8 and renders it — equivalent
 to `render(readFileSync(path, "utf-8"), inputs)`:
 
@@ -90,15 +101,15 @@ validateInputs(source, { project: "Acme SDK", version: "3.0.0", date: "2026-07-0
 
 Generate a `foo.d.mdma.ts` declaration next to each `foo.mdma` so TypeScript
 knows the template's `@inputs` shape. Imports are then typed as
-`MdmaSource<{...}>`, and `render(source, inputs)` (or your own code, via the
-`MdmaInputs<typeof source>` helper) flags mismatched inputs in the IDE and in
-`tsc`:
+`ParsedTemplate<{...}>`, and `renderTemplate(template, inputs)` (or your own
+code, via the `MdmaInputs<typeof prompt>` helper) flags mismatched inputs in
+the IDE and in `tsc`:
 
 ```typescript
 import prompt from "./createZone.mdma";
-import { render, type MdmaInputs } from "typescript-mdma";
+import { renderTemplate, type MdmaInputs } from "typescript-mdma";
 
-render(prompt, { existing_zone_ids: ["a"] }); // checked against @inputs
+renderTemplate(prompt, { existing_zone_ids: ["a"] }); // checked against @inputs
 
 const promptInputs = (): MdmaInputs<typeof prompt> => ({
   existing_zone_ids: [], // missing/extra/mistyped keys are compile errors
@@ -108,15 +119,16 @@ const promptInputs = (): MdmaInputs<typeof prompt> => ({
 Two ways to keep the declaration files fresh:
 
 - **Vite plugin** (recommended for apps): validates each imported `.mdma`
-  file, inlines its raw source as the default export, and regenerates the
-  `.d.mdma.ts` on change.
+  file at build time, emits its parsed template as the default export (parsed
+  once at module load, never re-parsed), and regenerates the `.d.mdma.ts` on
+  change.
 
   ```typescript
   // vite.config.ts
   import mdma from "typescript-mdma/vite";
 
   export default defineConfig({
-    plugins: [mdma()], // mdma({ typegen: false }) to only validate + inline
+    plugins: [mdma()], // mdma({ typegen: false }) to only validate + parse
   });
   ```
 

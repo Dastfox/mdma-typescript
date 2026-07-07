@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { DuplicateNameError, MdmaTypeError } from "./errors.js";
 import { evaluate, Scope } from "./evaluator.js";
 import { parseFile } from "./fileParser.js";
-import type { Node } from "./model.js";
+import type { Node, ParsedTemplate } from "./model.js";
 import { validateInputs } from "./schema.js";
 import type { MdmaInputs } from "./types.js";
 import { formatNumber, toDisplayString, truthy, typename } from "./util.js";
@@ -29,7 +29,26 @@ export function render(
   source: string,
   inputs: Record<string, unknown> = {}
 ): Record<string, RenderedValue> {
-  const template = parseFile(source);
+  return renderTemplate(parseFile(source), inputs);
+}
+
+/**
+ * Render an already-parsed template (from `parseFile`, or a `.mdma` import
+ * emitted by the Vite plugin) against an inputs object. Same semantics as
+ * `render`, minus the parse.
+ *
+ * When `template` is a `ParsedTemplate<I>` (e.g. an import typed by a
+ * generated `.d.mdma.ts` file), `inputs` is checked against `I` at compile
+ * time.
+ */
+export function renderTemplate<T extends ParsedTemplate>(
+  template: T,
+  inputs?: MdmaInputs<T>
+): Record<string, RenderedValue>;
+export function renderTemplate(
+  template: ParsedTemplate,
+  inputs: Record<string, unknown> = {}
+): Record<string, RenderedValue> {
   const resolvedInputs = validateInputs(template.inputs, inputs);
   const allBlockNames = new Set(template.blocks.map((b) => b.name));
 

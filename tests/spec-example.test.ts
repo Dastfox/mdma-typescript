@@ -1,7 +1,7 @@
 /** Golden-output test using the worked example from spec.md section 8. */
 
 import { describe, expect, it } from "vitest";
-import { render } from "../src/index.js";
+import { parseFile, render, renderTemplate } from "../src/index.js";
 
 const TEMPLATE = `@inputs
 project:  string
@@ -100,6 +100,10 @@ describe("spec.md worked example", () => {
       "\n" +
       "\n";
     expect(result["release-notes"]).toBe(expected);
+  });
+
+  it("renderTemplate on a pre-parsed template matches render on the source", () => {
+    expect(renderTemplate(parseFile(TEMPLATE), INPUTS)).toEqual(render(TEMPLATE, INPUTS));
   });
 
   it("renders changelog-entry as an array of two", () => {

@@ -18,17 +18,17 @@ meta: object
 describe("generateDts", () => {
   it("maps mdma types to TypeScript, marking defaulted inputs optional", () => {
     const dts = generateDts(SOURCE);
-    expect(dts).toContain('import type { MdmaSource } from "typescript-mdma";');
+    expect(dts).toContain('import type { ParsedTemplate } from "typescript-mdma";');
     expect(dts).toContain("title: string;");
     expect(dts).toContain("count?: number;");
     expect(dts).toContain("tags: string[];");
     expect(dts).toContain("meta: Record<string, unknown>;");
-    expect(dts).toContain("export default source;");
+    expect(dts).toContain("export default template;");
   });
 
   it("types a template without inputs as Record<string, never>", () => {
     const dts = generateDts("@inputs\n\n<body>\nhi\n");
-    expect(dts).toContain("MdmaSource<Record<string, never>>");
+    expect(dts).toContain("ParsedTemplate<Record<string, never>>");
   });
 
   it("throws on an invalid template", () => {
@@ -60,12 +60,14 @@ describe("vite plugin", () => {
     },
   };
 
-  it("inlines the raw source and writes the declaration file", () => {
+  it("emits a module parsing the source once and writes the declaration file", () => {
     const dir = tempDir();
     const id = join(dir, "tpl.mdma");
     const plugin = mdma();
     const result = plugin.transform.call(context, SOURCE, `${id}?raw`);
-    expect(result?.code).toBe(`export default ${JSON.stringify(SOURCE)};`);
+    expect(result?.code).toBe(
+      `import { parseFile } from "typescript-mdma";\nexport default parseFile(${JSON.stringify(SOURCE)});`
+    );
     expect(readFileSync(join(dir, "tpl.d.mdma.ts"), "utf-8")).toBe(generateDts(SOURCE));
   });
 
