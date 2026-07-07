@@ -1,6 +1,6 @@
 {
   "name": "typescript-mdma",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Typed Markdown templating: render one or more Markdown strings from an .mdma template and an inputs object.",
   "keywords": ["markdown", "template", "templating", "codegen"],
   "license": "MIT",
@@ -20,7 +20,15 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
+    },
+    "./vite": {
+      "types": "./dist/vite.d.ts",
+      "import": "./dist/vite.js",
+      "require": "./dist/vite.cjs"
     }
+  },
+  "bin": {
+    "mdma-typegen": "./dist/cli.js"
   },
   "files": ["dist"],
   "engines": {

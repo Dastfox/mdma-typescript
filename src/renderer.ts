@@ -6,6 +6,7 @@ import { evaluate, Scope } from "./evaluator.js";
 import { parseFile } from "./fileParser.js";
 import type { Node } from "./model.js";
 import { validateInputs } from "./schema.js";
+import type { MdmaInputs } from "./types.js";
 import { formatNumber, toDisplayString, truthy, typename } from "./util.js";
 
 export type RenderedValue = string | string[] | Record<string, string>;
@@ -16,7 +17,14 @@ export type RenderedValue = string | string[] | Record<string, string>;
  * Returns an object mapping each block name to its rendered string. A
  * `<multiple:>` block renders to an array of strings, or -- if it also
  * declares `<name:>` -- to an object keyed by each item's computed name.
+ *
+ * When `source` is an `MdmaSource<I>` (e.g. an import typed by a generated
+ * `.d.mdma.ts` file), `inputs` is checked against `I` at compile time.
  */
+export function render<S extends string>(
+  source: S,
+  inputs?: MdmaInputs<S>
+): Record<string, RenderedValue>;
 export function render(
   source: string,
   inputs: Record<string, unknown> = {}

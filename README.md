@@ -71,6 +71,67 @@ writeOutput(result, "out/");                        // every block
 writeOutput(result, "out/", "release-notes");        // just that one
 ```
 
+`getInputs(source)` returns the template's `@inputs` declarations, and
+`validateInputs(source, inputs)` checks an inputs object against them without
+rendering — returning the resolved inputs (defaults applied) or throwing
+`MissingInputError` / `MdmaTypeError`:
+
+```typescript
+import { getInputs, validateInputs } from "typescript-mdma";
+
+getInputs(source);
+// [{ name: "project", type: "string", hasDefault: false, default: null }, ...]
+
+validateInputs(source, { project: "Acme SDK", version: "3.0.0", date: "2026-07-01" });
+// resolved inputs, with declared defaults applied
+```
+
+### Compile-time typed templates
+
+Generate a `foo.d.mdma.ts` declaration next to each `foo.mdma` so TypeScript
+knows the template's `@inputs` shape. Imports are then typed as
+`MdmaSource<{...}>`, and `render(source, inputs)` (or your own code, via the
+`MdmaInputs<typeof source>` helper) flags mismatched inputs in the IDE and in
+`tsc`:
+
+```typescript
+import prompt from "./createZone.mdma";
+import { render, type MdmaInputs } from "typescript-mdma";
+
+render(prompt, { existing_zone_ids: ["a"] }); // checked against @inputs
+
+const promptInputs = (): MdmaInputs<typeof prompt> => ({
+  existing_zone_ids: [], // missing/extra/mistyped keys are compile errors
+});
+```
+
+Two ways to keep the declaration files fresh:
+
+- **Vite plugin** (recommended for apps): validates each imported `.mdma`
+  file, inlines its raw source as the default export, and regenerates the
+  `.d.mdma.ts` on change.
+
+  ```typescript
+  // vite.config.ts
+  import mdma from "typescript-mdma/vite";
+
+  export default defineConfig({
+    plugins: [mdma()], // mdma({ typegen: false }) to only validate + inline
+  });
+  ```
+
+- **CLI** (for CI / pre-commit): `mdma-typegen [path ...]` scans for `.mdma`
+  files and writes their declarations; `mdma-typegen --check` exits 1 if any
+  declaration is missing or stale.
+
+Consumer `tsconfig.json` requirements: enable
+`"allowArbitraryExtensions": true` (TypeScript ≥ 5.0) so `import x from
+"./foo.mdma"` resolves the adjacent `foo.d.mdma.ts`, and remove any global
+`declare module "*.mdma"` wildcard so the generated per-file types win.
+Type mapping: `string`/`number`/`boolean` map to themselves, `object` to
+`Record<string, unknown>`, arrays to `T[]`; inputs with a default become
+optional properties.
+
 `render()` throws one of the errors in the package on failure:
 
 | Error class | Condition |
