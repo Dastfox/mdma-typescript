@@ -46,6 +46,20 @@ describe("examples/release-notes.mdma", () => {
   });
 });
 
+describe("examples/comments.mdma", () => {
+  it("renders with all comments stripped", () => {
+    const source = readExample("comments.mdma");
+    const result = render(source, { name: "Widget", tags: ["ui", "core"] });
+    expect(result.header).toBe("## Widget");
+    expect(result["tag-line"]).toBe("Tags: ui, core");
+  });
+
+  it("renders the tag line empty without tags", () => {
+    const source = readExample("comments.mdma");
+    expect(render(source, { name: "Widget" })["tag-line"]).toBe("");
+  });
+});
+
 describe("examples/named-blocks.mdma", () => {
   it("renders an object keyed by version", () => {
     const source = readExample("named-blocks.mdma");

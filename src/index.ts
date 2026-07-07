@@ -22,4 +22,4 @@ export { writeOutput } from "./output.js";
 export { dtsPathFor, generateDts } from "./typegen.js";
 export type { MdmaInputs, MdmaSource } from "./types.js";
 
-export const VERSION = "0.4.0";
+export const VERSION = "0.5.0";

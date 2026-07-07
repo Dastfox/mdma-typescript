@@ -19,6 +19,17 @@ const NAME_MOD_RE = /^name\s*:\s*(.+)$/;
 
 const RESERVED = new Set(["multiple"]);
 
+// One or more {# ... #} comments (each closing on this line) at the end of a
+// structural line. The non-greedy body plus the trailing anchor means a
+// comment-looking span inside a quoted default value never matches: the
+// closing quote after '#}' keeps the anchor from landing.
+const TRAILING_COMMENT_RE = /[ \t]*(?:\{#.*?#\}[ \t]*)+$/;
+const COMMENT_LINE_RE = /^[ \t]*(?:\{#.*?#\}[ \t]*)+$/;
+
+function isCommentLine(strippedLine: string): boolean {
+  return strippedLine.startsWith("{#") && COMMENT_LINE_RE.test(strippedLine);
+}
+
 function looksLikeBlockHeader(strippedLine: string): boolean {
   return SIMPLE_HEADER_RE.test(strippedLine) || OPEN_HEADER_RE.test(strippedLine);
 }
@@ -35,8 +46,18 @@ export function parseFile(source: string): ParsedTemplate {
   const inputs: InputDecl[] = [];
   const seenNames = new Set<string>();
   while (idx < lines.length) {
-    const stripped = lines[idx].trim();
+    let stripped = lines[idx].trim();
     if (stripped === "" || looksLikeBlockHeader(stripped)) break;
+    if (isCommentLine(stripped)) {
+      idx += 1;
+      continue;
+    }
+    if (stripped.startsWith("{#")) {
+      throw new MdmaSyntaxError(
+        `Unclosed comment at line ${idx + 1}: comments in the @inputs section must close with '#}' on the same line`
+      );
+    }
+    stripped = stripped.replace(TRAILING_COMMENT_RE, "");
     const decl = parseInputDecl(stripped, idx + 1);
     if (RESERVED.has(decl.name)) {
       throw new MdmaSyntaxError(`'${decl.name}' is a reserved word and cannot be used as an input name`);
@@ -49,7 +70,7 @@ export function parseFile(source: string): ParsedTemplate {
     idx += 1;
   }
 
-  while (idx < lines.length && lines[idx].trim() === "") idx += 1;
+  while (idx < lines.length && (lines[idx].trim() === "" || isCommentLine(lines[idx].trim()))) idx += 1;
 
   const inputTypes = new Map(inputs.map((d) => [d.name, d.type]));
   const blocks: Block[] = [];
@@ -231,10 +252,18 @@ function parseOpenHeader(
 }
 
 function stripBlankEdges(lines: string[]): string[] {
+  // Comment-only lines count as blank here: a comment line above or below a
+  // body's content (e.g. a separator between blocks) is file formatting too,
+  // and stripping it now keeps it from leaving a stray newline behind.
+  const ignorable = (line: string): boolean => {
+    const stripped = line.trim();
+    return stripped === "" || isCommentLine(stripped);
+  };
+
   let start = 0;
   let end = lines.length;
-  while (start < end && lines[start].trim() === "") start += 1;
-  while (end > start && lines[end - 1].trim() === "") end -= 1;
+  while (start < end && ignorable(lines[start])) start += 1;
+  while (end > start && ignorable(lines[end - 1])) end -= 1;
   return lines.slice(start, end);
 }
 

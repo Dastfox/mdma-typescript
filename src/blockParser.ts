@@ -7,7 +7,7 @@ import { MdmaSyntaxError } from "./errors.js";
 import { parseExpression } from "./exprParser.js";
 import type { ForNode, IfNode, Node } from "./model.js";
 
-const TAG_SPAN_RE = /\{\{.*?\}\}|\{%.*?%\}/gs;
+const TAG_SPAN_RE = /\{\{.*?\}\}|\{%.*?%\}|\{#.*?#\}/gs;
 
 const IF_RE = /^if\s+([\s\S]+)$/;
 const ELIF_RE = /^elif\s+([\s\S]+)$/;
@@ -19,7 +19,7 @@ const ENDFOR_RE = /^endfor$/;
 type TagKind = "if" | "elif" | "else" | "endif" | "for" | "endfor" | null;
 
 interface RawToken {
-  kind: "text" | "expr" | "tag";
+  kind: "text" | "expr" | "tag" | "comment";
   content: string;
   trimLeft: boolean;
   trimRight: boolean;
@@ -45,21 +45,110 @@ export function tokenizeBody(body: string): RawToken[] {
     const raw = m[0];
     const inner = raw.slice(2, -2);
     const [content, trimLeft, trimRight] = splitDelims(inner);
-    const kind = raw.startsWith("{{") ? "expr" : "tag";
+    const kind = raw.startsWith("{{") ? "expr" : raw.startsWith("{%") ? "tag" : "comment";
     tokens.push({ kind, content, trimLeft, trimRight });
     pos = m.index + raw.length;
   }
   if (pos < body.length) {
     tokens.push({ kind: "text", content: body.slice(pos), trimLeft: false, trimRight: false });
   }
+  for (const tok of tokens) {
+    if (tok.kind === "text" && tok.content.includes("{#")) {
+      throw new MdmaSyntaxError("Unclosed comment: missing '#}'");
+    }
+  }
   return tokens;
+}
+
+// A comment is "standalone" when nothing but whitespace shares its line; the
+// whole line then vanishes from the output, so authors can annotate templates
+// without leaving blank lines behind.
+const STANDALONE_LEFT_RE = /(^|\n)[ \t]*$/;
+const STANDALONE_RIGHT_RE = /^[ \t]*\n/;
+const ONLY_INDENT_RE = /^[ \t]*$/;
+
+export function stripCommentLines(tokens: RawToken[]): RawToken[] {
+  const result = [...tokens];
+
+  // Decide standalone-ness on the untouched token stream first: removals
+  // mutate the very text tokens the line-position checks rely on.
+  const plans: Array<[number, "newline" | "eof"]> = [];
+  for (let i = 0; i < result.length; i++) {
+    if (result[i].kind !== "comment") continue;
+    if (i > 0) {
+      const prev = result[i - 1];
+      if (prev.kind !== "text") continue;
+      const m = STANDALONE_LEFT_RE.exec(prev.content);
+      // A match on '^' only proves line-start if the text token itself
+      // opens the body; otherwise another tag sits on the same line.
+      if (!m || (m[1] === "" && i !== 1)) continue;
+    }
+    const nxt = i + 1 < result.length ? result[i + 1] : null;
+    if (nxt === null) {
+      plans.push([i, "eof"]);
+    } else if (nxt.kind === "text" && STANDALONE_RIGHT_RE.test(nxt.content)) {
+      plans.push([i, "newline"]);
+    } else if (nxt.kind === "text" && i + 2 === result.length && ONLY_INDENT_RE.test(nxt.content)) {
+      plans.push([i, "eof"]);
+    }
+  }
+
+  for (const [i, mode] of plans) {
+    if (i > 0) {
+      const prev = result[i - 1];
+      // 'eof': the comment is the last line, so the line it vanishes
+      // with includes the newline that started it.
+      const pattern = mode === "eof" ? /\n?[ \t]*$/ : /[ \t]*$/;
+      result[i - 1] = { ...prev, content: prev.content.replace(pattern, "") };
+    }
+    if (i + 1 < result.length) {
+      const nxt = result[i + 1];
+      const content = mode === "newline" ? nxt.content.replace(STANDALONE_RIGHT_RE, "") : "";
+      result[i + 1] = { ...nxt, content };
+    }
+  }
+  return result;
+}
+
+/**
+ * Removes comment tokens, honoring their trim markers, and merges the text
+ * tokens left adjacent so later whitespace control sees the same stream it
+ * would have without the comment.
+ */
+export function dropComments(tokens: RawToken[]): RawToken[] {
+  const result: RawToken[] = [];
+  let pendingTrim = false;
+  for (const tok of tokens) {
+    if (tok.kind === "comment") {
+      const last = result[result.length - 1];
+      if (tok.trimLeft && last?.kind === "text") {
+        result[result.length - 1] = { ...last, content: last.content.replace(/\s+$/, "") };
+      }
+      pendingTrim = pendingTrim || tok.trimRight;
+      continue;
+    }
+    if (tok.kind === "text") {
+      const content = pendingTrim ? tok.content.replace(/^\s+/, "") : tok.content;
+      pendingTrim = false;
+      const last = result[result.length - 1];
+      if (last?.kind === "text") {
+        result[result.length - 1] = { ...last, content: last.content + content };
+      } else {
+        result.push({ ...tok, content });
+      }
+      continue;
+    }
+    pendingTrim = false;
+    result.push(tok);
+  }
+  return result;
 }
 
 export function applyWhitespaceControl(tokens: RawToken[]): RawToken[] {
   const result = [...tokens];
   for (let i = 0; i < result.length; i++) {
     const tok = result[i];
-    if (tok.kind !== "expr" && tok.kind !== "tag") continue;
+    if (tok.kind === "text") continue;
     if (tok.trimLeft && i > 0 && result[i - 1].kind === "text") {
       const prev = result[i - 1];
       result[i - 1] = { ...prev, content: prev.content.replace(/\s+$/, "") };
@@ -164,7 +253,7 @@ function parseFor(tokens: RawToken[], i: number): [ForNode, number] {
 }
 
 export function parseBlockBody(body: string): Node[] {
-  const tokens = applyWhitespaceControl(tokenizeBody(body));
+  const tokens = applyWhitespaceControl(dropComments(stripCommentLines(tokenizeBody(body))));
   const [nodes, end] = parseNodes(tokens, 0, new Set());
   if (end !== tokens.length) {
     const stray = tokens[end];
