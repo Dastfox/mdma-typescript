@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -40,6 +40,12 @@ describe("dtsPathFor", () => {
   it("maps foo.mdma to foo.d.mdma.ts", () => {
     expect(dtsPathFor("/a/b/foo.mdma")).toBe("/a/b/foo.d.mdma.ts");
   });
+
+  it("mirrors the path under outDir, relative to sourceRoot, when given an output target", () => {
+    expect(dtsPathFor("/a/b/prompts/foo.mdma", { outDir: "/a/typegen", sourceRoot: "/a/b" })).toBe(
+      "/a/typegen/prompts/foo.d.mdma.ts"
+    );
+  });
 });
 
 describe("vite plugin", () => {
@@ -80,6 +86,19 @@ describe("vite plugin", () => {
     expect(readFileSync(join(dir, "tpl.d.mdma.ts"), "utf-8")).toBe(stale);
     mdma().transform.call(context, SOURCE, id);
     expect(readFileSync(join(dir, "tpl.d.mdma.ts"), "utf-8")).toBe(generateDts(SOURCE));
+  });
+
+  it("mirrors the declaration under outDir, relative to sourceRoot, when configured", () => {
+    const dir = tempDir();
+    const srcDir = join(dir, "src");
+    const outDir = join(dir, "typegen");
+    mkdirSync(join(srcDir, "prompts"), { recursive: true });
+    const id = join(srcDir, "prompts", "tpl.mdma");
+    const plugin = mdma({ typegen: { outDir, sourceRoot: srcDir } });
+
+    plugin.transform.call(context, SOURCE, id);
+
+    expect(readFileSync(join(outDir, "prompts", "tpl.d.mdma.ts"), "utf-8")).toBe(generateDts(SOURCE));
   });
 
   it("ignores non-mdma modules", () => {

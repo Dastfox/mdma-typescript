@@ -132,14 +132,34 @@ Two ways to keep the declaration files fresh:
   });
   ```
 
-- **CLI** (for CI / pre-commit): `mdma-typegen [path ...]` scans for `.mdma`
-  files and writes their declarations; `mdma-typegen --check` exits 1 if any
-  declaration is missing or stale.
+  Pass `{ outDir, sourceRoot }` instead of a boolean to mirror declarations
+  under a separate directory rather than writing them next to their source
+  — e.g. to gitignore generated files instead of committing them:
+
+  ```typescript
+  plugins: [
+    mdma({
+      typegen: { outDir: path.resolve(__dirname, "typegen"), sourceRoot: path.resolve(__dirname, "src") },
+    }),
+  ],
+  ```
+
+  Pair the same two directories in `rootDirs` (see below) so
+  `allowArbitraryExtensions` still finds the mirrored declaration.
+
+- **CLI** (for CI / pre-commit): `mdma-typegen [--out-dir <dir>] [path ...]`
+  scans for `.mdma` files and writes their declarations, mirrored under
+  `<dir>` (relative to whichever `path` argument found them) when `--out-dir`
+  is given; `mdma-typegen --check` exits 1 if any declaration is missing or
+  stale.
 
 Consumer `tsconfig.json` requirements: enable
 `"allowArbitraryExtensions": true` (TypeScript ≥ 5.0) so `import x from
 "./foo.mdma"` resolves the adjacent `foo.d.mdma.ts`, and remove any global
-`declare module "*.mdma"` wildcard so the generated per-file types win.
+`declare module "*.mdma"` wildcard so the generated per-file types win. If
+declarations are mirrored under a separate directory via `outDir`, also add
+`"rootDirs": ["src", "typegen"]` (the same two directories) so TypeScript
+treats them as one virtual directory when resolving the sibling declaration.
 Type mapping: `string`/`number`/`boolean` map to themselves, `object` to
 `Record<string, unknown>`, arrays to `T[]`; inputs with a default become
 optional properties.

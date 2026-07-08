@@ -8,8 +8,21 @@
  * so mismatched inputs objects are flagged at compile time.
  */
 
+import { join, relative } from "node:path";
 import { parseFile } from "./fileParser.js";
 import type { InputDecl, ScalarType } from "./model.js";
+
+/**
+ * Mirrors declaration files under a separate directory instead of writing
+ * them next to their `.mdma` source. Pair `outDir` and `sourceRoot` in the
+ * consuming project's `rootDirs` so `allowArbitraryExtensions` still finds
+ * them — TypeScript resolves `foo.d.mdma.ts` for `./foo.mdma` by treating
+ * every `rootDirs` entry as the same virtual directory.
+ */
+export interface TypegenOutput {
+  outDir: string;
+  sourceRoot: string;
+}
 
 const TS_SCALARS: Record<ScalarType, string> = {
   string: "string",
@@ -25,9 +38,14 @@ function tsTypeFor(decl: InputDecl): string {
   return TS_SCALARS[decl.type as ScalarType];
 }
 
-/** The declaration-file path for an .mdma file: `foo.mdma` -> `foo.d.mdma.ts`. */
-export function dtsPathFor(mdmaPath: string): string {
-  return mdmaPath.replace(/\.mdma$/, ".d.mdma.ts");
+/**
+ * The declaration-file path for an .mdma file: `foo.mdma` -> `foo.d.mdma.ts`,
+ * next to the source by default. Pass `output` to mirror it under
+ * `output.outDir` instead, at the same path relative to `output.sourceRoot`.
+ */
+export function dtsPathFor(mdmaPath: string, output?: TypegenOutput): string {
+  const path = output ? join(output.outDir, relative(output.sourceRoot, mdmaPath)) : mdmaPath;
+  return path.replace(/\.mdma$/, ".d.mdma.ts");
 }
 
 /**

@@ -11,14 +11,19 @@
  * `ParsedTemplate<{...}>` matching the template's `@inputs`.
  */
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 import { MdmaError } from "./errors.js";
 import { parseFile } from "./fileParser.js";
-import { dtsPathFor, generateDts } from "./typegen.js";
+import { dtsPathFor, generateDts, type TypegenOutput } from "./typegen.js";
 
 export interface MdmaPluginOptions {
-  /** Write/refresh `.d.mdma.ts` files next to imported templates. Default: true. */
-  typegen?: boolean;
+  /**
+   * Write/refresh `.d.mdma.ts` files next to imported templates. Default: true.
+   * Pass `{ outDir, sourceRoot }` to mirror them under `outDir` instead of writing
+   * them next to the source — see `TypegenOutput`.
+   */
+  typegen?: boolean | TypegenOutput;
 }
 
 // Structural subset of the Rollup plugin context/shape, so the plugin works
@@ -49,7 +54,7 @@ export default function mdma(options: MdmaPluginOptions = {}): MdmaPlugin {
         const message = error instanceof MdmaError ? error.message : String(error);
         this.error(`Invalid .mdma template: ${message}`);
       }
-      if (typegen) writeDtsIfChanged(filename, code);
+      if (typegen) writeDtsIfChanged(filename, code, typeof typegen === "object" ? typegen : undefined);
       return {
         code: `import { parseFile } from "typescript-mdma";\nexport default parseFile(${JSON.stringify(code)});`,
         map: null,
@@ -58,13 +63,14 @@ export default function mdma(options: MdmaPluginOptions = {}): MdmaPlugin {
   };
 }
 
-function writeDtsIfChanged(mdmaPath: string, source: string): void {
-  const dtsPath = dtsPathFor(mdmaPath);
+function writeDtsIfChanged(mdmaPath: string, source: string, output?: TypegenOutput): void {
+  const dtsPath = dtsPathFor(mdmaPath, output);
   const dts = generateDts(source);
   try {
     if (readFileSync(dtsPath, "utf-8") === dts) return;
   } catch {
     // Missing declaration file: write it below.
   }
+  mkdirSync(dirname(dtsPath), { recursive: true });
   writeFileSync(dtsPath, dts, "utf-8");
 }
